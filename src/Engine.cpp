@@ -96,6 +96,8 @@ bool Engine::initDirectX()
 	createRootSignature();
 	createPipeline();
 
+	createVertexBuffer();
+
 	return true;
 }
 
@@ -430,6 +432,42 @@ ComPtr<ID3DBlob> Engine::loadShader(LPCWSTR filename, LPCSTR entryPoint, LPCSTR 
 	}
 
 	return shaderBlob;
+}
+
+void Engine::createVertexBuffer()
+{
+	Vertex vertices[] = {
+		// { POS, COLOR }
+		{ {-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f} },
+		{ {0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f, 1.0f} },
+		{ {0.0f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f, 1.0f} }
+	};
+
+	vertexBuffer = Resource::buffer(device.Get(), sizeof(vertices), D3D12_HEAP_TYPE_DEFAULT);
+
+	ComPtr<ID3D12Resource> uploadBuffer = Resource::buffer(device.Get(), sizeof(vertices), D3D12_HEAP_TYPE_UPLOAD);
+
+	UINT8* pData;
+	D3D12_RANGE readRange{ 0, 0 };
+	uploadBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pData));
+	memcpy(pData, vertices, sizeof(vertices));
+	uploadBuffer->Unmap(0, nullptr);
+
+	commandAllocator->Reset();
+	commandList->Reset(commandAllocator.Get(), nullptr);
+
+	Resource::resourceBarrier(commandList.Get(), vertexBuffer.Get(), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_COPY_DEST);
+	commandList->CopyResource(vertexBuffer.Get(), uploadBuffer.Get());
+	commandList->Close();
+
+	ID3D12CommandList* const pCommandList[] = { commandList.Get() };
+	commandQueue->ExecuteCommandLists(1, pCommandList);
+
+	vertexBufferView.BufferLocation = vertexBuffer->GetGPUVirtualAddress();
+	vertexBufferView.SizeInBytes = sizeof(vertices);
+	vertexBufferView.StrideInBytes = sizeof(Vertex);
+
+	flushAndWait();
 }
 
 void Engine::recordCommandList()

@@ -19,7 +19,9 @@ using namespace std;
 //DirectX12
 #include <d3d12.h>				// para el Device
 #include <dxgi1_6.h>			// para el IDXGIFactory4
-#include <d3dcompiler.h>
+#include <d3dcompiler.h>		// D3DCompileFromFile
+#include <DirectXMath.h>		// XMFLOAT3
+using namespace DirectX;		// XMFLOAT3
 
 // Punteros Inteligentes
 #include <wrl.h>
@@ -85,6 +87,16 @@ protected:
 	void createRootSignature();
 	void createPipeline();
 	ComPtr<ID3DBlob> loadShader(LPCWSTR filename, LPCSTR entryPoint, LPCSTR target);
+
+	// Vertex
+	struct Vertex
+	{
+		XMFLOAT3 position;
+		XMFLOAT4 color;
+	};
+	ComPtr<ID3D12Resource> vertexBuffer;
+	D3D12_VERTEX_BUFFER_VIEW vertexBufferView;
+	void createVertexBuffer();
 
 	// Command List para renderizar
 	void recordCommandList();
