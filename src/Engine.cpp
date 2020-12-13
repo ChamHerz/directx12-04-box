@@ -409,9 +409,7 @@ void Engine::createPipeline()
 	psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
 	psoDesc.SampleDesc.Count = 1;
 
-	HRESULT lR = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pipelineState));
-
-	int ok = 123;
+	device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pipelineState));
 }
 
 ComPtr<ID3DBlob> Engine::loadShader(LPCWSTR filename, LPCSTR entryPoint, LPCSTR target)
@@ -443,9 +441,13 @@ void Engine::createVertexBuffer()
 {
 	Vertex vertices[] = {
 		// { POS, COLOR }
-		{ { 0.0f, 0.5f, 0.0f }, {1.0f, 0.0f, 0.0f, 1.0f} },
-		{ { 0.5f, -0.5f, 0.0f }, {0.0f, 1.0f, 0.0f, 1.0f} },
-		{ { -0.5f, -0.5f, 0.0f }, {0.0f, 0.0f, 1.0f, 1.0f} }
+		{ { -0.5f, 0.5f, 0.0f }, {1.0f, 0.0f, 0.0f, 1.0f} },
+		{ { 0.5f, -0.5f, 0.0f }, {1.0f, 0.0f, 0.0f, 1.0f} },
+		{ { -0.5f, -0.5f, 0.0f }, {1.0f, 0.0f, 0.0f, 1.0f} },
+
+		{ { 0.5f, 0.5f, 0.0f }, {1.0f, 1.0f, 0.0f, 1.0f} },
+		{ { 0.5f, -0.5f, 0.0f }, {1.0f, 1.0f, 0.0f, 1.0f} },
+		{ { -0.5f, 0.5f, 0.0f }, {1.0f, 1.0f, 0.0f, 1.0f} }
 	};
 
 	vertexBuffer = Resource::buffer(device.Get(), sizeof(vertices), D3D12_HEAP_TYPE_DEFAULT);
@@ -515,7 +517,8 @@ void Engine::recordCommandList()
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
 
-	commandList->DrawInstanced(3, 1, 0, 0);
+	// el primer parametro es la cantidad de vertices
+	commandList->DrawInstanced(6, 1, 0, 0);
 
 	Resource::resourceBarrier(commandList.Get(), renderTargets[backFrameIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
 
