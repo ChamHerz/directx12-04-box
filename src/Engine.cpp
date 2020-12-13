@@ -96,6 +96,7 @@ bool Engine::initDirectX()
 	createRootSignature();
 	createPipeline();
 
+	setViewportAndScissorRect(clientWidth, clientHeight);
 	createVertexBuffer();
 
 	return true;
@@ -320,7 +321,9 @@ void Engine::createRootSignature()
 	ComPtr<ID3DBlob> error;
 
 	D3D12SerializeRootSignature(&signatureDesc, D3D_ROOT_SIGNATURE_VERSION_1_0, &signature, &error);
-	device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&rootSignature));
+	HRESULT hr = device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&rootSignature));
+
+	int ok = 123;
 }
 
 void Engine::createPipeline()
@@ -406,7 +409,9 @@ void Engine::createPipeline()
 	psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
 	psoDesc.SampleDesc.Count = 1;
 
-	device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pipelineState));
+	HRESULT lR = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pipelineState));
+
+	int ok = 123;
 }
 
 ComPtr<ID3DBlob> Engine::loadShader(LPCWSTR filename, LPCSTR entryPoint, LPCSTR target)
@@ -438,9 +443,9 @@ void Engine::createVertexBuffer()
 {
 	Vertex vertices[] = {
 		// { POS, COLOR }
-		{ {-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f} },
-		{ {0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f, 1.0f} },
-		{ {0.0f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f, 1.0f} }
+		{ { 0.0f, 0.5f, 0.0f }, {1.0f, 0.0f, 0.0f, 1.0f} },
+		{ { 0.5f, -0.5f, 0.0f }, {0.0f, 1.0f, 0.0f, 1.0f} },
+		{ { -0.5f, -0.5f, 0.0f }, {0.0f, 0.0f, 1.0f, 1.0f} }
 	};
 
 	vertexBuffer = Resource::buffer(device.Get(), sizeof(vertices), D3D12_HEAP_TYPE_DEFAULT);
@@ -470,6 +475,21 @@ void Engine::createVertexBuffer()
 	flushAndWait();
 }
 
+void Engine::setViewportAndScissorRect(int width, int height)
+{
+	viewport.TopLeftX = 0;
+	viewport.TopLeftY = 0;
+	viewport.Width = static_cast<FLOAT>(width);
+	viewport.Height = static_cast<FLOAT>(height);
+	viewport.MinDepth = D3D12_MIN_DEPTH;
+	viewport.MaxDepth = D3D12_MAX_DEPTH;
+
+	scissorRect.left = 0;
+	scissorRect.top = 0;
+	scissorRect.right = width;
+	scissorRect.bottom = height;
+}
+
 void Engine::recordCommandList()
 {
 	const UINT backFrameIndex = swapchain->GetCurrentBackBufferIndex();
@@ -485,6 +505,17 @@ void Engine::recordCommandList()
 
 	// comando para pintar la pantalla
 	commandList->ClearRenderTargetView(renderTargetDescriptor, Colors::LightSteelBlue, 0, nullptr);
+	// comandos para dibujar el triangulo
+	commandList->OMSetRenderTargets(1, &renderTargetDescriptor, FALSE, nullptr);
+
+	commandList->SetGraphicsRootSignature(rootSignature.Get());
+	commandList->RSSetViewports(1, &viewport);
+	commandList->RSSetScissorRects(1, &scissorRect);
+
+	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
+
+	commandList->DrawInstanced(3, 1, 0, 0);
 
 	Resource::resourceBarrier(commandList.Get(), renderTargets[backFrameIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
 

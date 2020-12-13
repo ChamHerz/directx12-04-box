@@ -91,12 +91,17 @@ protected:
 	// Vertex
 	struct Vertex
 	{
-		XMFLOAT3 position;
-		XMFLOAT4 color;
+		XMFLOAT3 Position;
+		XMFLOAT4 Color;
 	};
 	ComPtr<ID3D12Resource> vertexBuffer;
 	D3D12_VERTEX_BUFFER_VIEW vertexBufferView;
 	void createVertexBuffer();
+
+	/* Viewport and Scissor */
+	D3D12_VIEWPORT viewport;
+	D3D12_RECT scissorRect;
+	void setViewportAndScissorRect(int width, int height);
 
 	// Command List para renderizar
 	void recordCommandList();
