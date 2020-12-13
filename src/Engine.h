@@ -19,6 +19,7 @@ using namespace std;
 //DirectX12
 #include <d3d12.h>				// para el Device
 #include <dxgi1_6.h>			// para el IDXGIFactory4
+#include <d3dcompiler.h>
 
 // Punteros Inteligentes
 #include <wrl.h>
@@ -80,7 +81,10 @@ protected:
 
 	// Pipeline
 	ComPtr<ID3D12RootSignature> rootSignature;
+	ComPtr<ID3D12PipelineState> pipelineState;
 	void createRootSignature();
+	void createPipeline();
+	ComPtr<ID3DBlob> loadShader(LPCWSTR filename, LPCSTR entryPoint, LPCSTR target);
 
 	// Command List para renderizar
 	void recordCommandList();

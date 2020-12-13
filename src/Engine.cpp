@@ -94,6 +94,7 @@ bool Engine::initDirectX()
 	createRenderTargets();
 
 	createRootSignature();
+	createPipeline();
 
 	return true;
 }
@@ -320,13 +321,124 @@ void Engine::createRootSignature()
 	device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&rootSignature));
 }
 
+void Engine::createPipeline()
+{
+	/* Shaders */
+
+	ComPtr<ID3DBlob> vertexBlob = loadShader(L"shader\\shaders.hlsl", "VSMain", "vs_5_1");
+
+	D3D12_SHADER_BYTECODE vertexShaderBytecode;
+	vertexShaderBytecode.pShaderBytecode = vertexBlob->GetBufferPointer();
+	vertexShaderBytecode.BytecodeLength = vertexBlob->GetBufferSize();
+
+	ComPtr<ID3DBlob> pixelBlob = loadShader(L"shader\\shaders.hlsl", "PSMain", "ps_5_1");
+
+	D3D12_SHADER_BYTECODE pixelShaderBytecode;
+	pixelShaderBytecode.pShaderBytecode = pixelBlob->GetBufferPointer();
+	pixelShaderBytecode.BytecodeLength = pixelBlob->GetBufferSize();
+
+	/* Input Layout */
+	  // vamos a usar un Vertex con position y color
+	D3D12_INPUT_ELEMENT_DESC inputElementDescs[] = {
+		// SemanticName; SemanticIndex; Format; InputSlot; AlignedByteOffset; InputSlotClass; InstanceDataStepRate;
+		  {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+		  {"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 3 * 4, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0}
+	};
+
+	D3D12_INPUT_LAYOUT_DESC inputLayout{};
+	inputLayout.NumElements = 2;
+	inputLayout.pInputElementDescs = inputElementDescs;
+
+	/* Rasterizer Stage */
+
+	D3D12_RASTERIZER_DESC rasterizerState{};
+	rasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+	rasterizerState.CullMode = D3D12_CULL_MODE_BACK;
+	rasterizerState.FrontCounterClockwise = FALSE;
+	rasterizerState.DepthBias = D3D12_DEFAULT_DEPTH_BIAS;
+	rasterizerState.DepthBiasClamp = D3D12_DEFAULT_DEPTH_BIAS_CLAMP;
+	rasterizerState.SlopeScaledDepthBias = D3D12_DEFAULT_SLOPE_SCALED_DEPTH_BIAS;
+	rasterizerState.DepthClipEnable = TRUE;
+	rasterizerState.MultisampleEnable = FALSE;
+	rasterizerState.AntialiasedLineEnable = FALSE;
+	rasterizerState.ForcedSampleCount = 0;
+	rasterizerState.ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
+
+	/* Blend State */
+
+	D3D12_BLEND_DESC blendState{};
+	blendState.AlphaToCoverageEnable = FALSE;
+	blendState.IndependentBlendEnable = FALSE;
+	const D3D12_RENDER_TARGET_BLEND_DESC defaultRenderTargetBlendDesc =
+	{
+	  FALSE,FALSE,
+	  D3D12_BLEND_ONE, D3D12_BLEND_ZERO, D3D12_BLEND_OP_ADD,
+	  D3D12_BLEND_ONE, D3D12_BLEND_ZERO, D3D12_BLEND_OP_ADD,
+	  D3D12_LOGIC_OP_NOOP,
+	  D3D12_COLOR_WRITE_ENABLE_ALL,
+	};
+	for (UINT i = 0; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i)
+	{
+		blendState.RenderTarget[i] = defaultRenderTargetBlendDesc;
+	}
+
+	/* Depth Stencil */
+
+	D3D12_DEPTH_STENCIL_DESC depthStencilState{};
+	depthStencilState.DepthEnable = FALSE;
+	depthStencilState.StencilEnable = FALSE;
+
+	/* Pipeline */
+
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc{};
+	psoDesc.InputLayout = inputLayout;
+	psoDesc.pRootSignature = rootSignature.Get();
+	psoDesc.VS = vertexShaderBytecode;
+	psoDesc.PS = pixelShaderBytecode;
+	psoDesc.RasterizerState = rasterizerState;
+	psoDesc.BlendState = blendState;
+	psoDesc.DepthStencilState = depthStencilState;
+	psoDesc.SampleMask = UINT_MAX;
+	psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	psoDesc.NumRenderTargets = 1;
+	psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+	psoDesc.SampleDesc.Count = 1;
+
+	device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pipelineState));
+}
+
+ComPtr<ID3DBlob> Engine::loadShader(LPCWSTR filename, LPCSTR entryPoint, LPCSTR target)
+{
+	HRESULT hr;
+
+	/* Shaders */
+
+	ComPtr<ID3DBlob> shaderBlob;
+	hr = D3DCompileFromFile(
+		filename, // FileName
+		nullptr, nullptr, // MacroDefines, Includes, 		
+		entryPoint, // FunctionEntryPoint
+		target, // Target: "vs_5_0", "ps_5_0", "vs_5_1", "ps_5_1"
+		D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, // Compile flags
+		0, // Flags2
+		&shaderBlob, // Code
+		nullptr // Error
+	);
+	if (FAILED(hr))
+	{
+		OutputDebugStringA("[ERROR] D3DCompileFromFile -- Vertex shader");
+	}
+
+	return shaderBlob;
+}
+
 void Engine::recordCommandList()
 {
 	const UINT backFrameIndex = swapchain->GetCurrentBackBufferIndex();
 
 	// para borrar la pantalla no necesitamos un pipeline
 	commandAllocator->Reset();
-	commandList->Reset(commandAllocator.Get(), nullptr);
+	commandList->Reset(commandAllocator.Get(), pipelineState.Get());
 
 	D3D12_CPU_DESCRIPTOR_HANDLE renderTargetDescriptor = renderTargetViewHeap->GetCPUDescriptorHandleForHeapStart();
 	renderTargetDescriptor.ptr += ((SIZE_T)backFrameIndex) * device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
