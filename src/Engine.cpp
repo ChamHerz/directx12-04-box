@@ -93,6 +93,8 @@ bool Engine::initDirectX()
 	createSwapchain(engineHwnd, clientWidth, clientHeight);
 	createRenderTargets();
 
+	createRootSignature();
+
 	return true;
 }
 
@@ -299,6 +301,23 @@ void Engine::createRenderTargets()
 
 		device->CreateRenderTargetView(renderTargets[FrameIndex].Get(), &RTDesc, DestDescriptor);
 	}
+}
+
+void Engine::createRootSignature()
+{
+	/* RootSignature vacío, no le pasamos decriptores
+	  (ni texturas, ni constant buffer, etc.,) a los shaders */
+
+	D3D12_ROOT_SIGNATURE_DESC signatureDesc{};
+	signatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+	signatureDesc.NumParameters = 0;
+	signatureDesc.NumStaticSamplers = 0;
+
+	ComPtr<ID3DBlob> signature;
+	ComPtr<ID3DBlob> error;
+
+	D3D12SerializeRootSignature(&signatureDesc, D3D_ROOT_SIGNATURE_VERSION_1_0, &signature, &error);
+	device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&rootSignature));
 }
 
 void Engine::recordCommandList()

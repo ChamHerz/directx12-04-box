@@ -78,6 +78,10 @@ protected:
 	void createSwapchain(HWND hWnd, UINT Width, UINT Height);
 	void createRenderTargets();
 
+	// Pipeline
+	ComPtr<ID3D12RootSignature> rootSignature;
+	void createRootSignature();
+
 	// Command List para renderizar
 	void recordCommandList();
 
